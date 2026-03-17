@@ -57,4 +57,16 @@ export const getCropCalendar = async (disease, confidence, season = "current", l
   return res.data;
 };
 
+export const getRecommendations = async (file, disease, confidence, plantType = "potato", season = "Summer", location = "Poland") => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("disease", disease);
+  formData.append("confidence", confidence);
+  formData.append("plant_type", plantType);
+  formData.append("season", season);
+  formData.append("location", location);
+  const res = await api.post("/recommendations", formData, { timeout: 60000 });
+  return res.data;
+};
+
 export default api;

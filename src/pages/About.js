@@ -16,7 +16,7 @@ const techStack = [
   { icon: "format_paint", name: "Tailwind CSS", color: "text-cyan-400" },
   { icon: "bolt", name: "FastAPI", color: "text-emerald-500" },
   { icon: "memory", name: "TensorFlow", color: "text-orange-500" },
-  { icon: "model_training", name: "Google Gemini", color: "text-indigo-500" },
+  { icon: "model_training", name: "AI Vision", color: "text-indigo-500" },
 ];
 
 const developer = {
@@ -59,7 +59,7 @@ const About = () => {
                   auto_awesome
                 </span>
                 <h3 className="font-bold text-slate-900">
-                  Gemini Vision Analysis
+                  AI Vision Analysis
                 </h3>
                 <p className="text-sm text-slate-500">
                   Deep multimodal analysis for treatment suggestions and

@@ -3,8 +3,7 @@ import { plants } from "../data/plantData";
 import {
   predictPotato,
   analyzePlant,
-  getSeverity,
-  getAdvice,
+  getRecommendations,
   getCropCalendar,
 } from "../api";
 
@@ -18,11 +17,10 @@ const Analyze = () => {
   // Results
   const [diagnosis, setDiagnosis] = useState(null);
   const [severity, setSeverity] = useState(null);
-  const [severityLoading, setSeverityLoading] = useState(false);
   const [advice, setAdvice] = useState(null);
-  const [adviceLoading, setAdviceLoading] = useState(false);
   const [calendar, setCalendar] = useState(null);
-  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [recsLoading, setRecsLoading] = useState(false);
+  const [recsError, setRecsError] = useState(null);
 
   // UI state
   const [adviceTab, setAdviceTab] = useState("treatment");
@@ -81,6 +79,29 @@ const Analyze = () => {
     setError(null);
   }, [preview]);
 
+  const fetchRecommendations = async (diagResult) => {
+    if (diagResult.diseaseName === "Not Identified") return;
+
+    setRecsLoading(true);
+    setRecsError(null);
+    try {
+      const result = await getRecommendations(
+        file,
+        diagResult.diseaseName,
+        diagResult.confidence,
+        selectedPlant.id,
+        calendarSeason,
+        calendarLocation
+      );
+      setSeverity(result.severity);
+      setAdvice(result.advice);
+      setCalendar(result.calendar);
+    } catch (err) {
+      setRecsError("Failed to load recommendations. Please try again.");
+    }
+    setRecsLoading(false);
+  };
+
   const handleAnalyze = async () => {
     if (!file || !selectedPlant) return;
 
@@ -90,6 +111,7 @@ const Analyze = () => {
     setSeverity(null);
     setAdvice(null);
     setCalendar(null);
+    setRecsError(null);
 
     try {
       // Step 1: Diagnosis
@@ -110,47 +132,14 @@ const Analyze = () => {
           confidencePercent: `${(raw.confidence * 100).toFixed(1)}%`,
           isHealthy: raw.is_healthy,
           description: raw.description,
+          warning: raw.warning,
         };
       }
       setDiagnosis(diagResult);
       setIsAnalyzing(false);
 
-      // Step 2: Parallel calls for severity, advice, calendar
-      setSeverityLoading(true);
-      setAdviceLoading(true);
-      setCalendarLoading(true);
-
-      const [severityResult, adviceResult, calendarResult] =
-        await Promise.allSettled([
-          getSeverity(file),
-          getAdvice(
-            diagResult.diseaseName,
-            diagResult.confidence,
-            selectedPlant.id
-          ),
-          getCropCalendar(
-            diagResult.diseaseName,
-            diagResult.confidence,
-            calendarSeason,
-            calendarLocation,
-            selectedPlant.id
-          ),
-        ]);
-
-      if (severityResult.status === "fulfilled") {
-        setSeverity(severityResult.value);
-      }
-      setSeverityLoading(false);
-
-      if (adviceResult.status === "fulfilled") {
-        setAdvice(adviceResult.value);
-      }
-      setAdviceLoading(false);
-
-      if (calendarResult.status === "fulfilled") {
-        setCalendar(calendarResult.value);
-      }
-      setCalendarLoading(false);
+      // Step 2: Get recommendations in a single Gemini call (skip if Not Identified)
+      await fetchRecommendations(diagResult);
     } catch (err) {
       setError(err.message || "Analysis failed. Please try again.");
       setIsAnalyzing(false);
@@ -159,20 +148,24 @@ const Analyze = () => {
 
   const refreshCalendar = async () => {
     if (!diagnosis) return;
-    setCalendarLoading(true);
+    setRecsLoading(true);
+    setRecsError(null);
     try {
-      const result = await getCropCalendar(
+      const result = await getRecommendations(
+        file,
         diagnosis.diseaseName,
         diagnosis.confidence,
+        selectedPlant.id,
         calendarSeason,
-        calendarLocation,
-        selectedPlant.id
+        calendarLocation
       );
-      setCalendar(result);
+      setSeverity(result.severity);
+      setAdvice(result.advice);
+      setCalendar(result.calendar);
     } catch (err) {
-      // silently fail
+      setRecsError("Failed to refresh recommendations.");
     }
-    setCalendarLoading(false);
+    setRecsLoading(false);
   };
 
   const handleUploadAnother = () => {
@@ -409,27 +402,70 @@ const Analyze = () => {
             {/* Card 1: Diagnosis */}
             <DiagnosisCard diagnosis={diagnosis} preview={preview} />
 
-            {/* Card 2: Severity */}
-            <SeverityCard severity={severity} loading={severityLoading} />
+            {/* Warning: Not Identified */}
+            {diagnosis.diseaseName === "Not Identified" ? (
+              <div className="bg-amber-50 border border-amber-300 rounded-xl p-6 text-center">
+                <span className="material-symbols-outlined text-amber-500 text-4xl mb-2">
+                  warning
+                </span>
+                <p className="text-amber-800 font-bold text-lg mb-2">
+                  Image Not Recognized
+                </p>
+                <p className="text-amber-700 text-sm mb-4">
+                  This doesn't appear to be a valid {selectedPlant?.name?.toLowerCase()} leaf image.
+                  Please upload a clear photo of a {selectedPlant?.name?.toLowerCase()} leaf for accurate diagnosis.
+                </p>
+                <button
+                  onClick={handleUploadAnother}
+                  className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2.5 rounded-lg font-bold transition-colors inline-flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-xl">upload_file</span>
+                  Upload Another Image
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Recommendations error with retry */}
+                {recsError ? (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-5 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-red-700">
+                      <span className="material-symbols-outlined">error</span>
+                      <p className="text-sm font-medium">{recsError}</p>
+                    </div>
+                    <button
+                      onClick={() => fetchRecommendations(diagnosis)}
+                      disabled={recsLoading}
+                      className="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-1"
+                    >
+                      <span className="material-symbols-outlined text-sm">refresh</span>
+                      Retry
+                    </button>
+                  </div>
+                ) : null}
 
-            {/* Card 3: Treatment Advice */}
-            <AdviceCard
-              advice={advice}
-              loading={adviceLoading}
-              activeTab={adviceTab}
-              onTabChange={setAdviceTab}
-            />
+                {/* Card 2: Severity */}
+                <SeverityCard severity={severity} loading={recsLoading} />
 
-            {/* Card 4: Crop Calendar */}
-            <CalendarCard
-              calendar={calendar}
-              loading={calendarLoading}
-              season={calendarSeason}
-              location={calendarLocation}
-              onSeasonChange={setCalendarSeason}
-              onLocationChange={setCalendarLocation}
-              onRefresh={refreshCalendar}
-            />
+                {/* Card 3: Treatment Advice */}
+                <AdviceCard
+                  advice={advice}
+                  loading={recsLoading}
+                  activeTab={adviceTab}
+                  onTabChange={setAdviceTab}
+                />
+
+                {/* Card 4: Crop Calendar */}
+                <CalendarCard
+                  calendar={calendar}
+                  loading={recsLoading}
+                  season={calendarSeason}
+                  location={calendarLocation}
+                  onSeasonChange={setCalendarSeason}
+                  onLocationChange={setCalendarLocation}
+                  onRefresh={refreshCalendar}
+                />
+              </>
+            )}
           </section>
         ) : null}
 

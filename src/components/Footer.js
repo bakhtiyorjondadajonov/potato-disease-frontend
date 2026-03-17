@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-const techStack = ["React", "FastAPI", "TensorFlow", "Gemini Pro", "Tailwind CSS"];
+const techStack = ["React", "FastAPI", "TensorFlow", "AI Vision", "Tailwind CSS"];
 
 const Footer = () => {
   return (
