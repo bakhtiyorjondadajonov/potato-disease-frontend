@@ -1,11 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { plants } from "../data/plantData";
-import {
-  predictPotato,
-  analyzePlant,
-  getRecommendations,
-  getCropCalendar,
-} from "../api";
+import { predictPotato, analyzePlant, getRecommendations } from "../api";
 
 const Analyze = () => {
   const [selectedPlant, setSelectedPlant] = useState(null);
