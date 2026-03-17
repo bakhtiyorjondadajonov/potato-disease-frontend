@@ -1,7 +1,23 @@
-import { ImageUpload } from "./home";
+import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
+import Home from "./pages/Home";
+import Analyze from "./pages/Analyze";
+import About from "./pages/About";
 
 function App() {
-  return <ImageUpload />;
+  return (
+    <BrowserRouter>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/analyze" element={<Analyze />} />
+        <Route path="/about" element={<About />} />
+      </Routes>
+      <Footer />
+    </BrowserRouter>
+  );
 }
 
 export default App;
